@@ -1,0 +1,12 @@
+{
+  "name": "tree-guide-dashboard",
+  "version": "1.0.0",
+  "description": "Tree guide for AKU-ACER - shared plant catalog dashboard",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}
