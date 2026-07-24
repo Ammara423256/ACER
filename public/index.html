@@ -73,7 +73,25 @@
     content:"⌕"; position:absolute;left:16px;top:50%;transform:translateY(-50%);
     font-size:18px;color:var(--ink-soft);
   }
-  .filters{display:flex;gap:8px;flex-wrap:wrap;}
+  .category-dropdown{position:relative;}
+  .category-toggle{
+    font-family:'Times New Roman', Times, serif; font-size:14px; padding:9px 16px;
+    border:none; border-radius:20px; background:var(--card);
+    box-shadow:0 1px 4px rgba(44,53,36,0.12); color:var(--ink); cursor:pointer;
+    display:flex;align-items:center;gap:8px;white-space:nowrap;
+  }
+  .category-toggle:hover{background:var(--paper-2);}
+  .category-toggle .arrow{font-size:11px;transition:transform .15s;color:var(--ink-soft);}
+  .category-toggle.open .arrow{transform:rotate(180deg);}
+  .filters{
+    display:flex;gap:8px;flex-wrap:wrap;
+    position:absolute;top:calc(100% + 8px);left:0;z-index:20;
+    background:var(--card);border-radius:16px;padding:14px;
+    box-shadow:0 4px 14px rgba(44,53,36,0.2);
+    min-width:240px;max-width:min(480px, 90vw);
+    display:none;
+  }
+  .filters.open{display:flex;}
   .chip{
     font-family:'Times New Roman', Times, serif; font-size:14px; padding:9px 16px;
     border:none; border-radius:20px; background:var(--card);
@@ -169,7 +187,13 @@
     <div class="search-box">
       <input id="searchInput" type="text" placeholder="Search by local name, common name, scientific name, or use…">
     </div>
-    <div class="filters" id="filterRow"></div>
+    <div class="category-dropdown">
+      <button class="category-toggle" id="categoryToggle" type="button">
+        <span id="categoryToggleLabel">Category: All</span>
+        <span class="arrow">▾</span>
+      </button>
+      <div class="filters" id="filterRow"></div>
+    </div>
   </div>
 
   <div class="action-row">
@@ -237,10 +261,34 @@ function renderFilters(){
     const btn = document.createElement("button");
     btn.className = "chip" + (cat === activeCategory ? " active" : "");
     btn.textContent = cat;
-    btn.onclick = () => { activeCategory = cat; renderFilters(); renderGrid(); };
+    btn.onclick = () => {
+      activeCategory = cat;
+      renderFilters();
+      renderGrid();
+      closeCategoryDropdown();
+    };
     row.appendChild(btn);
   });
+  document.getElementById("categoryToggleLabel").textContent = "Category: " + activeCategory;
 }
+
+function closeCategoryDropdown(){
+  document.getElementById("filterRow").classList.remove("open");
+  document.getElementById("categoryToggle").classList.remove("open");
+}
+
+document.getElementById("categoryToggle").addEventListener("click", (e) => {
+  e.stopPropagation();
+  document.getElementById("filterRow").classList.toggle("open");
+  document.getElementById("categoryToggle").classList.toggle("open");
+});
+
+document.addEventListener("click", (e) => {
+  const dropdown = document.querySelector(".category-dropdown");
+  if(dropdown && !dropdown.contains(e.target)){
+    closeCategoryDropdown();
+  }
+});
 
 function matches(p){
   const inCategory = activeCategory === "All" || p.category === activeCategory;
@@ -422,3 +470,4 @@ loadPlants();
 </script>
 </body>
 </html>
+
