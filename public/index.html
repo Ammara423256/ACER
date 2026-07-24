@@ -166,7 +166,34 @@
   }
   .status{font-size:12px;color:var(--ink-soft);margin-top:6px;}
 
-  @media(max-width:520px){
+  .image-field{margin-top:4px;}
+  .image-drop{
+    border:1px dashed var(--rule); border-radius:12px; padding:16px; text-align:center;
+    cursor:pointer; background:#fff; font-size:13.5px; color:var(--ink-soft);
+  }
+  .image-drop:hover{background:var(--paper-2);}
+  .image-previews{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;}
+  .image-thumb{position:relative;width:74px;height:74px;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px rgba(44,53,36,0.2);}
+  .image-thumb img{width:100%;height:100%;object-fit:cover;display:block;}
+  .image-thumb .remove-thumb{
+    position:absolute;top:2px;right:2px;background:rgba(44,53,36,0.75);color:#fff;
+    border:none;border-radius:50%;width:18px;height:18px;font-size:11px;line-height:1;cursor:pointer;
+  }
+  .gallery{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;}
+  .gallery img{
+    width:84px;height:84px;object-fit:cover;border-radius:10px;cursor:pointer;
+    box-shadow:0 1px 4px rgba(44,53,36,0.2);
+  }
+  .lightbox{
+    position:fixed;inset:0;background:rgba(20,24,16,0.85);display:none;
+    align-items:center;justify-content:center;z-index:100;padding:20px;
+  }
+  .lightbox.open{display:flex;}
+  .lightbox img{max-width:90vw;max-height:85vh;border-radius:8px;}
+  .lightbox .close-lightbox{
+    position:absolute;top:20px;right:24px;color:#fff;font-size:28px;
+    background:none;border:none;cursor:pointer;
+  }
     header.top h1{font-size:32px;}
     .form-grid{grid-template-columns:1fr;}
   }
@@ -212,6 +239,12 @@
       <div class="field full"><label>Uses</label><textarea id="f_uses" placeholder="What it's used for"></textarea></div>
       <div class="field full"><label>Preparation</label><textarea id="f_prep" placeholder="How it's prepared or applied"></textarea></div>
       <div class="field full"><label>Notes</label><textarea id="f_notes" placeholder="Any extra notes"></textarea></div>
+      <div class="field full image-field">
+        <label>Photos</label>
+        <div class="image-drop" id="imageDropZone">Click to choose photos, or drag them here</div>
+        <input type="file" id="f_images" accept="image/*" multiple style="display:none;">
+        <div class="image-previews" id="imagePreviews"></div>
+      </div>
     </div>
     <div class="form-actions">
       <button class="btn" id="saveBtn">Save plant</button>
@@ -229,6 +262,11 @@
   </footer>
 </div>
 
+<div class="lightbox" id="lightbox">
+  <button class="close-lightbox" id="closeLightbox">&times;</button>
+  <img id="lightboxImg" src="" alt="Plant photo">
+</div>
+
 <script>
 const LEAF_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M12 2C7 5 4 10 4 15c0 3.5 3 6 8 7 5-1 8-3.5 8-7 0-5-3-10-8-13z"/><path d="M12 4v18"/></svg>';
 
@@ -236,6 +274,7 @@ let plants = [];
 let activeCategory = "All";
 let searchTerm = "";
 let editingId = null;
+let pendingImages = [];
 
 async function loadPlants(){
   try{
@@ -247,6 +286,86 @@ async function loadPlants(){
   }
   renderFilters();
   renderGrid();
+}
+
+function compressImage(file, maxDim = 900, quality = 0.72) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > height && width > maxDim) {
+          height = Math.round(height * (maxDim / width));
+          width = maxDim;
+        } else if (height > maxDim) {
+          width = Math.round(width * (maxDim / height));
+          height = maxDim;
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function renderImagePreviews(){
+  const wrap = document.getElementById("imagePreviews");
+  wrap.innerHTML = "";
+  pendingImages.forEach((src, idx) => {
+    const thumb = document.createElement("div");
+    thumb.className = "image-thumb";
+    thumb.innerHTML = `<img src="${src}" alt="preview"><button type="button" class="remove-thumb">&times;</button>`;
+    thumb.querySelector(".remove-thumb").addEventListener("click", () => {
+      pendingImages.splice(idx, 1);
+      renderImagePreviews();
+    });
+    wrap.appendChild(thumb);
+  });
+}
+
+async function handleFiles(fileList){
+  const files = Array.from(fileList).filter(f => f.type.startsWith("image/"));
+  for (const file of files) {
+    try {
+      const dataUrl = await compressImage(file);
+      pendingImages.push(dataUrl);
+    } catch(e) { /* skip file on error */ }
+  }
+  renderImagePreviews();
+}
+
+document.getElementById("imageDropZone").addEventListener("click", () => {
+  document.getElementById("f_images").click();
+});
+document.getElementById("f_images").addEventListener("change", (e) => {
+  handleFiles(e.target.files);
+  e.target.value = "";
+});
+document.getElementById("imageDropZone").addEventListener("dragover", (e) => {
+  e.preventDefault();
+});
+document.getElementById("imageDropZone").addEventListener("drop", (e) => {
+  e.preventDefault();
+  handleFiles(e.dataTransfer.files);
+});
+
+document.getElementById("closeLightbox").addEventListener("click", () => {
+  document.getElementById("lightbox").classList.remove("open");
+});
+document.getElementById("lightbox").addEventListener("click", (e) => {
+  if (e.target.id === "lightbox") document.getElementById("lightbox").classList.remove("open");
+});
+function openLightbox(src){
+  document.getElementById("lightboxImg").src = src;
+  document.getElementById("lightbox").classList.add("open");
 }
 
 function uniqueCategories(){
@@ -337,6 +456,7 @@ function renderGrid(){
           <dt>Preparation</dt><dd>${escapeHtml(p.prep)}</dd>
           <dt>Notes</dt><dd>${escapeHtml(p.notes)}</dd>
         </dl>
+        ${(p.images && p.images.length) ? `<div class="gallery">${p.images.map(src => `<img src="${src}" alt="${escapeHtml(p.localName)} photo">`).join("")}</div>` : ""}
         <div class="card-actions">
           <button class="btn small secondary edit-btn">Edit</button>
           <button class="btn small danger delete-btn">Delete</button>
@@ -348,6 +468,9 @@ function renderGrid(){
     const toggle = () => card.classList.toggle("open");
     clickArea.style.cursor = "pointer";
     clickArea.addEventListener("click", toggle);
+    card.querySelectorAll(".gallery img").forEach(img => {
+      img.addEventListener("click", (e) => { e.stopPropagation(); openLightbox(img.src); });
+    });
     card.querySelector(".edit-btn").addEventListener("click", (e) => { e.stopPropagation(); openEditForm(p); });
     card.querySelector(".delete-btn").addEventListener("click", async (e) => {
       e.stopPropagation();
@@ -370,6 +493,8 @@ function openAddForm(){
   editingId = null;
   document.getElementById("formTitle").textContent = "Add a plant";
   ["f_localName","f_commonName","f_sciName","f_category","f_region","f_uses","f_prep","f_notes"].forEach(id => document.getElementById(id).value = "");
+  pendingImages = [];
+  renderImagePreviews();
   document.getElementById("formStatus").textContent = "";
   document.getElementById("formPanel").classList.add("open");
   document.getElementById("f_localName").focus();
@@ -386,6 +511,8 @@ function openEditForm(p){
   document.getElementById("f_uses").value = p.uses || "";
   document.getElementById("f_prep").value = p.prep || "";
   document.getElementById("f_notes").value = p.notes || "";
+  pendingImages = Array.isArray(p.images) ? [...p.images] : [];
+  renderImagePreviews();
   document.getElementById("formStatus").textContent = "";
   document.getElementById("formPanel").classList.add("open");
   window.scrollTo({top: document.getElementById("formPanel").offsetTop - 20, behavior:"smooth"});
@@ -394,6 +521,7 @@ function openEditForm(p){
 function closeForm(){
   document.getElementById("formPanel").classList.remove("open");
   editingId = null;
+  pendingImages = [];
 }
 
 document.getElementById("toggleFormBtn").addEventListener("click", () => {
@@ -416,7 +544,8 @@ document.getElementById("saveBtn").addEventListener("click", async () => {
     region: document.getElementById("f_region").value.trim(),
     uses: document.getElementById("f_uses").value.trim(),
     prep: document.getElementById("f_prep").value.trim(),
-    notes: document.getElementById("f_notes").value.trim()
+    notes: document.getElementById("f_notes").value.trim(),
+    images: pendingImages
   };
   try{
     let res;
@@ -470,4 +599,5 @@ loadPlants();
 </script>
 </body>
 </html>
+
 
