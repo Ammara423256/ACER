@@ -8,7 +8,7 @@ const PORT = process.env.PORT || 3000;
 const SEED_FILE = path.join(__dirname, 'data', 'seed.json');
 const MONGODB_URI = process.env.MONGODB_URI;
 
-app.use(express.json());
+app.use(express.json({ limit: '15mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // --- MongoDB connection ---
@@ -26,7 +26,8 @@ const plantSchema = new mongoose.Schema({
   region: { type: String, default: '', trim: true },
   uses: { type: String, default: '', trim: true },
   prep: { type: String, default: '', trim: true },
-  notes: { type: String, default: '', trim: true }
+  notes: { type: String, default: '', trim: true },
+  images: { type: [String], default: [] }
 }, { versionKey: false });
 
 const Plant = mongoose.model('Plant', plantSchema);
@@ -52,8 +53,8 @@ async function nextId() {
 }
 
 function toPlainPlant(doc) {
-  const { _id, id, localName, commonName, sciName, category, region, uses, prep, notes } = doc.toObject ? doc.toObject() : doc;
-  return { id, localName, commonName, sciName, category, region, uses, prep, notes };
+  const { _id, id, localName, commonName, sciName, category, region, uses, prep, notes, images } = doc.toObject ? doc.toObject() : doc;
+  return { id, localName, commonName, sciName, category, region, uses, prep, notes, images: images || [] };
 }
 
 // GET all plants
@@ -83,7 +84,8 @@ app.post('/api/plants', async (req, res) => {
       region: (body.region || '').trim(),
       uses: (body.uses || '').trim(),
       prep: (body.prep || '').trim(),
-      notes: (body.notes || '').trim()
+      notes: (body.notes || '').trim(),
+      images: Array.isArray(body.images) ? body.images : []
     });
     await entry.save();
     res.status(201).json(toPlainPlant(entry));
@@ -109,7 +111,8 @@ app.put('/api/plants/:id', async (req, res) => {
         region: (body.region || '').trim(),
         uses: (body.uses || '').trim(),
         prep: (body.prep || '').trim(),
-        notes: (body.notes || '').trim()
+        notes: (body.notes || '').trim(),
+        images: Array.isArray(body.images) ? body.images : []
       },
       { new: true }
     );
